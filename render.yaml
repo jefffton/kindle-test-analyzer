@@ -1,0 +1,12 @@
+services:
+  - type: web
+    name: kindle-test-analyzer
+    runtime: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: python app.py
+    plan: free
+    envVars:
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: ANTHROPIC_MODEL
+        value: claude-sonnet-4-6
