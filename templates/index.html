@@ -1,0 +1,1137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Kindle Storefront Test Analyzer</title>
+<style>
+  :root {
+    --kindle-orange: #FF9900;
+    --kindle-dark: #131921;
+    --kindle-blue: #146EB4;
+    --kindle-light-blue: #007185;
+    --kindle-gray: #565959;
+    --kindle-light-gray: #F0F2F2;
+    --high: #C7091C;
+    --medium: #E67E22;
+    --low: #27AE60;
+    --card-shadow: 0 2px 8px rgba(0,0,0,0.12);
+    --radius: 8px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Amazon Ember', 'Helvetica Neue', Arial, sans-serif;
+    background: #EAEDED;
+    color: #0F1111;
+    min-height: 100vh;
+  }
+
+  header {
+    background: var(--kindle-dark);
+    padding: 14px 24px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+  }
+
+  header .logo {
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--kindle-orange);
+    letter-spacing: -0.5px;
+  }
+
+  header .logo span { color: white; }
+  header .subtitle { color: #ccc; font-size: 13px; }
+
+  .badge {
+    background: var(--kindle-orange);
+    color: white;
+    font-size: 11px;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: 4px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  main { max-width: 1200px; margin: 0 auto; padding: 32px 16px 64px; }
+
+  /* Upload Card */
+  .upload-card {
+    background: white;
+    border-radius: var(--radius);
+    box-shadow: var(--card-shadow);
+    padding: 36px;
+    margin-bottom: 28px;
+    border: 1px solid #D5D9D9;
+  }
+
+  .upload-card h2 {
+    font-size: 20px;
+    margin-bottom: 6px;
+    color: var(--kindle-dark);
+  }
+
+  .upload-card p {
+    color: var(--kindle-gray);
+    font-size: 14px;
+    margin-bottom: 24px;
+  }
+
+  .drop-zone {
+    border: 2px dashed #a0a0a0;
+    border-radius: var(--radius);
+    padding: 48px 24px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s;
+    background: #FAFAFA;
+    position: relative;
+  }
+
+  .drop-zone:hover, .drop-zone.dragover {
+    border-color: var(--kindle-orange);
+    background: #FFF8F0;
+  }
+
+  .drop-zone input[type="file"] {
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    cursor: pointer;
+    width: 100%;
+    height: 100%;
+  }
+
+  .drop-zone .icon { font-size: 48px; margin-bottom: 12px; }
+
+  .drop-zone h3 { font-size: 18px; margin-bottom: 8px; color: var(--kindle-dark); }
+
+  .drop-zone p { color: var(--kindle-gray); font-size: 14px; margin: 0; }
+
+  .file-types {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 16px;
+    justify-content: center;
+  }
+
+  .file-type-tag {
+    background: var(--kindle-light-gray);
+    color: var(--kindle-gray);
+    padding: 3px 10px;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+  }
+
+  .selected-file {
+    margin-top: 16px;
+    padding: 12px 16px;
+    background: #F0FFF4;
+    border: 1px solid #27AE60;
+    border-radius: var(--radius);
+    display: none;
+    align-items: center;
+    gap: 10px;
+    font-size: 14px;
+    color: #1a6b35;
+  }
+
+  .selected-file.show { display: flex; }
+
+  .analyze-btn {
+    margin-top: 20px;
+    background: var(--kindle-orange);
+    color: white;
+    border: none;
+    padding: 14px 36px;
+    font-size: 16px;
+    font-weight: 700;
+    border-radius: var(--radius);
+    cursor: pointer;
+    transition: background 0.2s;
+    display: block;
+    width: 100%;
+    letter-spacing: 0.3px;
+  }
+
+  .analyze-btn:hover:not(:disabled) { background: #E68A00; }
+  .analyze-btn:disabled { background: #ccc; cursor: not-allowed; }
+
+  /* Progress */
+  .progress-bar-wrap {
+    margin-top: 16px;
+    display: none;
+    background: var(--kindle-light-gray);
+    border-radius: 4px;
+    height: 6px;
+    overflow: hidden;
+  }
+
+  .progress-bar-wrap.show { display: block; }
+
+  .progress-bar {
+    height: 100%;
+    background: var(--kindle-orange);
+    width: 0%;
+    transition: width 0.4s;
+    border-radius: 4px;
+  }
+
+  .status-msg {
+    text-align: center;
+    color: var(--kindle-gray);
+    font-size: 14px;
+    margin-top: 8px;
+    display: none;
+  }
+
+  .status-msg.show { display: block; }
+
+  /* Error */
+  .error-box {
+    background: #FFF0F0;
+    border: 1px solid var(--high);
+    border-radius: var(--radius);
+    padding: 16px 20px;
+    color: var(--high);
+    font-size: 14px;
+    margin-top: 16px;
+    display: none;
+  }
+
+  .error-box.show { display: block; }
+
+  /* Results */
+  #results { display: none; }
+  #results.show { display: block; }
+
+  .results-header {
+    background: white;
+    border-radius: var(--radius);
+    box-shadow: var(--card-shadow);
+    padding: 24px 28px;
+    margin-bottom: 20px;
+    border: 1px solid #D5D9D9;
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 16px;
+  }
+
+  .results-header h2 { font-size: 20px; color: var(--kindle-dark); margin-bottom: 6px; }
+  .results-header .filename { color: var(--kindle-gray); font-size: 13px; }
+  .results-header .summary { color: #333; font-size: 14px; line-height: 1.5; max-width: 680px; }
+
+  .stats-row {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+
+  .stat-pill {
+    background: var(--kindle-light-gray);
+    border-radius: 20px;
+    padding: 8px 18px;
+    text-align: center;
+    font-size: 13px;
+  }
+
+  .stat-pill strong { display: block; font-size: 24px; color: var(--kindle-orange); line-height: 1.1; }
+
+  /* Tabs */
+  .tabs {
+    display: flex;
+    gap: 4px;
+    border-bottom: 2px solid #D5D9D9;
+    margin-bottom: 20px;
+    background: white;
+    border-radius: var(--radius) var(--radius) 0 0;
+    padding: 0 16px;
+    box-shadow: var(--card-shadow);
+  }
+
+  .tab-btn {
+    background: none;
+    border: none;
+    padding: 14px 20px;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--kindle-gray);
+    cursor: pointer;
+    border-bottom: 3px solid transparent;
+    margin-bottom: -2px;
+    transition: all 0.15s;
+    white-space: nowrap;
+  }
+
+  .tab-btn:hover { color: var(--kindle-dark); }
+  .tab-btn.active { color: var(--kindle-orange); border-bottom-color: var(--kindle-orange); }
+
+  .tab-count {
+    background: var(--kindle-light-gray);
+    color: var(--kindle-gray);
+    font-size: 11px;
+    padding: 2px 7px;
+    border-radius: 10px;
+    margin-left: 6px;
+    font-weight: 700;
+  }
+
+  .tab-btn.active .tab-count { background: var(--kindle-orange); color: white; }
+
+  .tab-panel { display: none; }
+  .tab-panel.active { display: block; }
+
+  /* Section cards */
+  .section-card {
+    background: white;
+    border-radius: var(--radius);
+    box-shadow: var(--card-shadow);
+    border: 1px solid #D5D9D9;
+    margin-bottom: 16px;
+    overflow: hidden;
+  }
+
+  .section-card-header {
+    padding: 16px 20px;
+    border-bottom: 1px solid #F0F2F2;
+    background: #FAFAFA;
+    font-weight: 700;
+    font-size: 15px;
+    color: var(--kindle-dark);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  /* Test Cases */
+  .tc-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 16px; padding: 20px; }
+
+  .tc-card {
+    border: 1px solid #D5D9D9;
+    border-radius: var(--radius);
+    padding: 16px;
+    transition: box-shadow 0.2s;
+    position: relative;
+    padding-top: 20px;
+  }
+
+  .tc-card:hover { box-shadow: 0 4px 12px rgba(0,0,0,0.12); }
+
+  .tc-id { font-size: 11px; font-weight: 700; color: var(--kindle-gray); text-transform: uppercase; letter-spacing: 0.5px; }
+  .tc-title { font-size: 15px; font-weight: 700; margin: 4px 0 8px; color: var(--kindle-dark); }
+  .tc-category {
+    display: inline-block;
+    background: #E8F4FD;
+    color: var(--kindle-blue);
+    font-size: 11px;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: 4px;
+    margin-bottom: 8px;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+  }
+  .tc-desc { font-size: 13px; color: #444; line-height: 1.5; }
+
+  .priority-badge {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    font-size: 10px;
+    font-weight: 700;
+    padding: 2px 7px;
+    border-radius: 4px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .priority-badge.High { background: #FDEDED; color: var(--high); }
+  .priority-badge.Medium { background: #FEF5E7; color: var(--medium); }
+  .priority-badge.Low { background: #EAF7EE; color: var(--low); }
+
+  /* Exploratory Scenarios */
+  .es-list { padding: 20px; display: grid; gap: 16px; }
+
+  .es-card {
+    border: 1px solid #D5D9D9;
+    border-radius: var(--radius);
+    overflow: hidden;
+    transition: box-shadow 0.2s;
+  }
+
+  .es-card:hover { box-shadow: 0 4px 12px rgba(0,0,0,0.12); }
+
+  .es-card-head {
+    padding: 14px 18px;
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+    background: #FAFAFA;
+    border-bottom: 1px solid #F0F2F2;
+    cursor: pointer;
+    user-select: none;
+  }
+
+  .es-card-head:hover { background: #F5F5F5; }
+
+  .es-head-left { flex: 1; min-width: 0; }
+
+  .es-id-row { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
+  .es-id { font-size: 11px; font-weight: 700; color: var(--kindle-gray); text-transform: uppercase; letter-spacing: 0.5px; }
+
+  .risk-badge {
+    font-size: 10px;
+    font-weight: 700;
+    padding: 2px 7px;
+    border-radius: 4px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .risk-badge.High { background: #FDEDED; color: var(--high); }
+  .risk-badge.Medium { background: #FEF5E7; color: var(--medium); }
+  .risk-badge.Low { background: #EAF7EE; color: var(--low); }
+
+  .es-title { font-size: 15px; font-weight: 700; color: var(--kindle-dark); margin-bottom: 6px; }
+
+  .es-meta { display: flex; flex-wrap: wrap; gap: 8px; }
+
+  .es-persona-tag {
+    background: #F0F8FF;
+    color: var(--kindle-blue);
+    font-size: 11px;
+    font-weight: 600;
+    padding: 3px 10px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+
+  .es-device-tag {
+    background: var(--kindle-light-gray);
+    color: var(--kindle-gray);
+    font-size: 11px;
+    font-weight: 600;
+    padding: 3px 10px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+
+  .es-expand-icon { font-size: 18px; color: var(--kindle-gray); flex-shrink: 0; transition: transform 0.2s; }
+  .es-card.expanded .es-expand-icon { transform: rotate(180deg); }
+
+  .es-body {
+    padding: 0;
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.3s ease, padding 0.2s;
+  }
+
+  .es-card.expanded .es-body { max-height: 800px; padding: 18px 18px 20px; }
+
+  .es-section-label {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--kindle-gray);
+    margin-bottom: 6px;
+  }
+
+  .es-scenario-text { font-size: 14px; line-height: 1.65; color: #222; margin-bottom: 16px; white-space: pre-line; }
+  .es-wtlf { font-size: 13px; line-height: 1.6; color: #555; margin-bottom: 16px; background: #FFFBF0; padding: 10px 14px; border-radius: 6px; border-left: 3px solid var(--kindle-orange); white-space: pre-line; }
+
+  .es-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
+  .es-tag { background: var(--kindle-light-gray); color: var(--kindle-gray); font-size: 11px; padding: 2px 8px; border-radius: 4px; }
+
+  /* Risks */
+  .risks-list { padding: 20px; display: grid; gap: 12px; }
+
+  .risk-card {
+    border: 1px solid #F0D9D9;
+    border-radius: var(--radius);
+    padding: 16px 18px;
+    background: #FFFAFA;
+  }
+
+  .risk-area { font-size: 13px; font-weight: 700; color: var(--high); text-transform: uppercase; letter-spacing: 0.3px; margin-bottom: 6px; }
+  .risk-desc { font-size: 14px; color: #333; margin-bottom: 10px; line-height: 1.5; }
+  .risk-test { font-size: 13px; color: #555; background: #F5F5F5; padding: 8px 12px; border-radius: 6px; line-height: 1.5; }
+  .risk-test::before { content: "Test: "; font-weight: 700; color: var(--kindle-blue); }
+
+  /* Gaps */
+  .gaps-list { padding: 20px; display: grid; gap: 10px; }
+
+  .gap-item {
+    padding: 12px 16px;
+    border: 1px solid #D5D9D9;
+    border-radius: 6px;
+    font-size: 14px;
+    color: #333;
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    background: #FAFFFE;
+    border-left: 3px solid var(--kindle-light-blue);
+    line-height: 1.5;
+  }
+
+  .gap-icon { color: var(--kindle-light-blue); font-size: 16px; flex-shrink: 0; margin-top: 1px; }
+
+  /* Filters */
+  .filter-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 16px 20px;
+    border-bottom: 1px solid #F0F2F2;
+    background: #FAFAFA;
+  }
+
+  .filter-btn {
+    background: white;
+    border: 1px solid #D5D9D9;
+    border-radius: 20px;
+    padding: 5px 14px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s;
+    color: var(--kindle-gray);
+  }
+
+  .filter-btn:hover { border-color: var(--kindle-orange); color: var(--kindle-orange); }
+  .filter-btn.active { background: var(--kindle-orange); border-color: var(--kindle-orange); color: white; }
+
+  /* Empty / no results */
+  .empty-state { text-align: center; padding: 40px; color: var(--kindle-gray); font-size: 14px; }
+
+  /* Expand All button */
+  .expand-all-btn {
+    background: white;
+    border: 1px solid var(--kindle-orange);
+    color: var(--kindle-orange);
+    padding: 6px 16px;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+
+  .expand-all-btn:hover { background: var(--kindle-orange); color: white; }
+
+  .flex-between { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; }
+
+  /* Feature Context Box */
+  .feature-context-box {
+    margin-top: 20px;
+    border: 1px solid #D5D9D9;
+    border-radius: var(--radius);
+    overflow: hidden;
+    background: #FAFFFE;
+    border-left: 3px solid var(--kindle-light-blue);
+  }
+
+  .feature-context-header {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 14px 16px 10px;
+  }
+
+  .feature-context-icon { font-size: 22px; flex-shrink: 0; margin-top: 1px; }
+
+  .feature-context-title {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--kindle-dark);
+    margin-bottom: 3px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .optional-badge {
+    font-size: 10px;
+    font-weight: 600;
+    background: #E8F4FD;
+    color: var(--kindle-blue);
+    padding: 1px 7px;
+    border-radius: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+  }
+
+  .feature-context-subtitle {
+    font-size: 12px;
+    color: var(--kindle-gray);
+    line-height: 1.4;
+  }
+
+  .feature-context-textarea {
+    width: 100%;
+    border: none;
+    border-top: 1px solid #E8F0F0;
+    padding: 12px 16px;
+    font-size: 13px;
+    font-family: inherit;
+    color: #222;
+    background: white;
+    resize: vertical;
+    min-height: 90px;
+    line-height: 1.6;
+    outline: none;
+    display: block;
+  }
+
+  .feature-context-textarea:focus {
+    background: #FFFEF8;
+    border-top-color: var(--kindle-orange);
+  }
+
+  .feature-context-textarea::placeholder { color: #aaa; }
+
+  .feature-context-hints {
+    padding: 8px 16px 12px;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+    background: #F5FDFD;
+    border-top: 1px solid #E8F0F0;
+  }
+
+  .hint-label {
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--kindle-gray);
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    margin-right: 2px;
+  }
+
+  .hint-tag {
+    font-size: 11px;
+    background: white;
+    border: 1px solid #C9E6E6;
+    color: var(--kindle-light-blue);
+    padding: 2px 9px;
+    border-radius: 12px;
+    font-weight: 500;
+  }
+
+  /* Footer */
+  footer {
+    text-align: center;
+    padding: 20px;
+    color: var(--kindle-gray);
+    font-size: 12px;
+    border-top: 1px solid #D5D9D9;
+    background: white;
+    margin-top: 40px;
+  }
+
+  @media (max-width: 600px) {
+    .tc-grid { grid-template-columns: 1fr; }
+    .tabs { overflow-x: auto; }
+    .tab-btn { padding: 12px 12px; font-size: 13px; }
+    .results-header { flex-direction: column; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <div class="logo">kindle<span>QA</span></div>
+    <div class="subtitle">Storefront Test Analyzer</div>
+  </div>
+  <span class="badge" style="margin-left:auto">Powered by Claude AI</span>
+</header>
+
+<main>
+
+  <!-- Upload -->
+  <div class="upload-card">
+    <h2>Analyze Test Cases for Kindle Storefront</h2>
+    <p>Upload a Quip export, document, spreadsheet, or any test-related file. Claude will parse test cases and generate exploratory scenarios tailored to real Amazon Kindle users.</p>
+
+    <div class="drop-zone" id="dropZone">
+      <input type="file" id="fileInput" accept=".txt,.doc,.docx,.pdf,.xlsx,.xls,.csv,.html,.htm,.md,.json,.xml,.rtf">
+      <div class="icon">&#128196;</div>
+      <h3>Drop your file here or click to browse</h3>
+      <p>Supports Quip exports, Word docs, PDFs, spreadsheets, CSV, HTML, Markdown, JSON and more</p>
+      <div class="file-types">
+        <span class="file-type-tag">DOCX</span>
+        <span class="file-type-tag">PDF</span>
+        <span class="file-type-tag">XLSX</span>
+        <span class="file-type-tag">CSV</span>
+        <span class="file-type-tag">HTML</span>
+        <span class="file-type-tag">TXT</span>
+        <span class="file-type-tag">MD</span>
+        <span class="file-type-tag">JSON</span>
+        <span class="file-type-tag">XML</span>
+        <span class="file-type-tag">RTF</span>
+      </div>
+    </div>
+
+    <div class="selected-file" id="selectedFile">
+      <span>&#128206;</span>
+      <span id="selectedFileName"></span>
+    </div>
+
+    <!-- Feature Context Box -->
+    <div class="feature-context-box">
+      <div class="feature-context-header">
+        <span class="feature-context-icon">&#128161;</span>
+        <div>
+          <div class="feature-context-title">Feature Context <span class="optional-badge">Optional</span></div>
+          <div class="feature-context-subtitle">Describe the feature being tested — Claude will use this to generate more targeted scenarios and find deeper gaps</div>
+        </div>
+      </div>
+      <textarea
+        id="featureContext"
+        class="feature-context-textarea"
+        placeholder="Example: We're launching a new &quot;Continue Reading&quot; widget on the Kindle Storefront homepage. It shows the last 3 books a customer was reading across all their devices. Tapping a book opens it at the last read position. The widget only appears if the customer has at least 1 book in progress. It should work across Paperwhite, Fire Tablet, and the Kindle iOS/Android app..."
+        rows="5"
+      ></textarea>
+      <div class="feature-context-hints">
+        <span class="hint-label">Helpful to include:</span>
+        <span class="hint-tag">Feature name &amp; purpose</span>
+        <span class="hint-tag">User entry points</span>
+        <span class="hint-tag">Known edge cases</span>
+        <span class="hint-tag">Target devices</span>
+        <span class="hint-tag">Dependencies / integrations</span>
+        <span class="hint-tag">Business rules</span>
+      </div>
+    </div>
+
+    <div class="error-box" id="errorBox"></div>
+
+    <button class="analyze-btn" id="analyzeBtn" disabled>
+      Analyze Test Cases
+    </button>
+
+    <div class="progress-bar-wrap" id="progressWrap">
+      <div class="progress-bar" id="progressBar"></div>
+    </div>
+    <div class="status-msg" id="statusMsg"></div>
+  </div>
+
+  <!-- Results -->
+  <div id="results">
+
+    <div class="results-header">
+      <div>
+        <h2>Analysis Results</h2>
+        <div class="filename" id="resultFilename"></div>
+        <div class="summary" id="resultSummary" style="margin-top:10px"></div>
+      </div>
+      <div class="stats-row">
+        <div class="stat-pill">
+          <strong id="statTC">0</strong>
+          Test Cases
+        </div>
+        <div class="stat-pill">
+          <strong id="statES">0</strong>
+          Scenarios
+        </div>
+        <div class="stat-pill">
+          <strong id="statGaps">0</strong>
+          Gaps Found
+        </div>
+        <div class="stat-pill">
+          <strong id="statRisks">0</strong>
+          Kindle Risks
+        </div>
+      </div>
+    </div>
+
+    <div class="tabs">
+      <button class="tab-btn active" data-tab="scenarios">
+        Exploratory Scenarios <span class="tab-count" id="cntES">0</span>
+      </button>
+      <button class="tab-btn" data-tab="testcases">
+        Test Cases Found <span class="tab-count" id="cntTC">0</span>
+      </button>
+      <button class="tab-btn" data-tab="risks">
+        Kindle Risks <span class="tab-count" id="cntRisks">0</span>
+      </button>
+      <button class="tab-btn" data-tab="gaps">
+        Coverage Gaps <span class="tab-count" id="cntGaps">0</span>
+      </button>
+    </div>
+
+    <!-- Scenarios Tab -->
+    <div class="tab-panel active" id="tab-scenarios">
+      <div class="section-card">
+        <div class="section-card-header flex-between">
+          <span>&#128270; Exploratory Testing Scenarios</span>
+          <button class="expand-all-btn" id="expandAllBtn">Expand All</button>
+        </div>
+        <div class="filter-row" id="personaFilters"></div>
+        <div class="filter-row" id="riskFilters">
+          <button class="filter-btn active" data-risk-filter="All">All Risks</button>
+          <button class="filter-btn" data-risk-filter="High">High Risk</button>
+          <button class="filter-btn" data-risk-filter="Medium">Medium Risk</button>
+          <button class="filter-btn" data-risk-filter="Low">Low Risk</button>
+        </div>
+        <div class="es-list" id="esList"></div>
+      </div>
+    </div>
+
+    <!-- Test Cases Tab -->
+    <div class="tab-panel" id="tab-testcases">
+      <div class="section-card">
+        <div class="section-card-header">&#9989; Test Cases Identified</div>
+        <div class="tc-grid" id="tcGrid"></div>
+      </div>
+    </div>
+
+    <!-- Risks Tab -->
+    <div class="tab-panel" id="tab-risks">
+      <div class="section-card">
+        <div class="section-card-header">&#9888;&#65039; Kindle-Specific Risks</div>
+        <div class="risks-list" id="risksList"></div>
+      </div>
+    </div>
+
+    <!-- Gaps Tab -->
+    <div class="tab-panel" id="tab-gaps">
+      <div class="section-card">
+        <div class="section-card-header">&#128203; Coverage Gaps</div>
+        <div class="gaps-list" id="gapsList"></div>
+      </div>
+    </div>
+
+  </div>
+</main>
+
+<footer>
+  KindleQA &mdash; Internal Test Analyzer &bull; Powered by Claude AI &bull; Amazon Internal Use Only
+</footer>
+
+<script>
+(function() {
+
+  const fileInput = document.getElementById('fileInput');
+  const dropZone = document.getElementById('dropZone');
+  const selectedFile = document.getElementById('selectedFile');
+  const selectedFileName = document.getElementById('selectedFileName');
+  const analyzeBtn = document.getElementById('analyzeBtn');
+  const errorBox = document.getElementById('errorBox');
+  const progressWrap = document.getElementById('progressWrap');
+  const progressBar = document.getElementById('progressBar');
+  const statusMsg = document.getElementById('statusMsg');
+  const results = document.getElementById('results');
+
+  let currentFile = null;
+  let allScenarios = [];
+  let activePersonaFilter = 'All';
+  let activeRiskFilter = 'All';
+
+  // File selection
+  fileInput.addEventListener('change', () => {
+    if (fileInput.files[0]) selectFile(fileInput.files[0]);
+  });
+
+  dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('dragover'); });
+  dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+  dropZone.addEventListener('drop', e => {
+    e.preventDefault();
+    dropZone.classList.remove('dragover');
+    if (e.dataTransfer.files[0]) selectFile(e.dataTransfer.files[0]);
+  });
+
+  function selectFile(file) {
+    currentFile = file;
+    selectedFileName.textContent = file.name + ' (' + formatBytes(file.size) + ')';
+    selectedFile.classList.add('show');
+    analyzeBtn.disabled = false;
+    errorBox.classList.remove('show');
+  }
+
+  function formatBytes(b) {
+    if (b < 1024) return b + ' B';
+    if (b < 1024 * 1024) return (b / 1024).toFixed(1) + ' KB';
+    return (b / (1024 * 1024)).toFixed(1) + ' MB';
+  }
+
+  // Analyze — async job with polling
+  analyzeBtn.addEventListener('click', async () => {
+    if (!currentFile) return;
+
+    errorBox.classList.remove('show');
+    results.classList.remove('show');
+    analyzeBtn.disabled = true;
+    progressWrap.classList.add('show');
+    statusMsg.classList.add('show');
+
+    // Animated progress stages
+    const stages = [
+      [8,  'Uploading file...'],
+      [20, 'Extracting text content...'],
+      [35, 'Claude is reading your test cases...'],
+      [55, 'Analyzing Kindle Storefront coverage...'],
+      [72, 'Generating exploratory scenarios...'],
+      [85, 'Identifying coverage gaps and risks...'],
+      [92, 'Finalizing analysis...']
+    ];
+    let stageIdx = 0;
+    const ticker = setInterval(() => {
+      if (stageIdx < stages.length) {
+        progressBar.style.width = stages[stageIdx][0] + '%';
+        statusMsg.textContent = stages[stageIdx][1];
+        stageIdx++;
+      }
+    }, 8000);
+
+    const finishProgress = (ok) => {
+      clearInterval(ticker);
+      progressBar.style.width = ok ? '100%' : '0%';
+      statusMsg.textContent = ok ? 'Analysis complete!' : '';
+      setTimeout(() => {
+        progressWrap.classList.remove('show');
+        statusMsg.classList.remove('show');
+        progressBar.style.width = '0%';
+        analyzeBtn.disabled = false;
+      }, ok ? 800 : 0);
+    };
+
+    try {
+      // 1. Submit job
+      const formData = new FormData();
+      formData.append('file', currentFile);
+      const featureContext = document.getElementById('featureContext').value.trim();
+      if (featureContext) formData.append('feature_context', featureContext);
+      const submitResp = await fetch('/analyze', { method: 'POST', body: formData });
+      const submitData = await submitResp.json();
+
+      if (!submitResp.ok || submitData.error) {
+        finishProgress(false);
+        showError(submitData.error || 'Upload failed.');
+        return;
+      }
+
+      const jobId = submitData.job_id;
+
+      // 2. Poll for result
+      const poll = async () => {
+        try {
+          const r = await fetch(`/result/${jobId}`);
+          const d = await r.json();
+
+          if (d.status === 'done') {
+            finishProgress(true);
+            renderResults(d.data);
+          } else if (d.status === 'error') {
+            finishProgress(false);
+            showError(d.error || 'Analysis failed.');
+          } else {
+            // still queued/running — poll again
+            setTimeout(poll, 3000);
+          }
+        } catch (pollErr) {
+          finishProgress(false);
+          showError('Network error while polling: ' + pollErr.message);
+        }
+      };
+
+      setTimeout(poll, 5000);
+
+    } catch (err) {
+      finishProgress(false);
+      showError('Network error: ' + err.message);
+    }
+  });
+
+  function showError(msg) {
+    errorBox.textContent = msg;
+    errorBox.classList.add('show');
+  }
+
+  // Render
+  function renderResults(data) {
+    document.getElementById('resultFilename').textContent = 'File: ' + (data.filename || '');
+    document.getElementById('resultSummary').textContent = data.document_summary || '';
+
+    const tc = data.test_cases_found || [];
+    const es = data.exploratory_scenarios || [];
+    const risks = data.kindle_specific_risks || [];
+    const gaps = data.coverage_gaps || [];
+
+    document.getElementById('statTC').textContent = tc.length;
+    document.getElementById('statES').textContent = es.length;
+    document.getElementById('statGaps').textContent = gaps.length;
+    document.getElementById('statRisks').textContent = risks.length;
+
+    document.getElementById('cntTC').textContent = tc.length;
+    document.getElementById('cntES').textContent = es.length;
+    document.getElementById('cntRisks').textContent = risks.length;
+    document.getElementById('cntGaps').textContent = gaps.length;
+
+    allScenarios = es;
+
+    renderTestCases(tc);
+    renderScenarios(es);
+    renderRisks(risks);
+    renderGaps(gaps);
+    buildPersonaFilters(es);
+
+    results.classList.add('show');
+    results.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  function renderTestCases(tc) {
+    const grid = document.getElementById('tcGrid');
+    if (!tc.length) { grid.innerHTML = '<div class="empty-state">No test cases identified in this document.</div>'; return; }
+    grid.innerHTML = tc.map(t => `
+      <div class="tc-card">
+        <span class="priority-badge ${t.priority || 'Low'}">${t.priority || 'Low'}</span>
+        <div class="tc-id">${esc(t.id || '')}</div>
+        <div class="tc-title">${esc(t.title || '')}</div>
+        <span class="tc-category">${esc(t.category || 'General')}</span>
+        <div class="tc-desc">${esc(t.description || '')}</div>
+      </div>`).join('');
+  }
+
+  function renderScenarios(es) {
+    const list = document.getElementById('esList');
+    if (!es.length) { list.innerHTML = '<div class="empty-state">No scenarios generated.</div>'; return; }
+
+    list.innerHTML = es.map((s, i) => `
+      <div class="es-card" data-persona="${esc(s.persona || '')}" data-risk="${esc(s.risk_level || 'Low')}" data-idx="${i}">
+        <div class="es-card-head" onclick="toggleScenario(${i})">
+          <div class="es-head-left">
+            <div class="es-id-row">
+              <span class="es-id">${esc(s.id || '')}</span>
+              <span class="risk-badge ${s.risk_level || 'Low'}">${s.risk_level || 'Low'} Risk</span>
+            </div>
+            <div class="es-title">${esc(s.title || '')}</div>
+            <div class="es-meta">
+              <span class="es-persona-tag">&#128100; ${esc(s.persona || '')}</span>
+              <span class="es-device-tag">&#128241; ${esc(s.device || '')}</span>
+            </div>
+          </div>
+          <span class="es-expand-icon">&#8964;</span>
+        </div>
+        <div class="es-body">
+          <div class="es-section-label">Scenario Steps</div>
+          <div class="es-scenario-text">${esc(s.scenario || '')}</div>
+          <div class="es-section-label">What to Look For</div>
+          <div class="es-wtlf">${esc(s.what_to_look_for || '')}</div>
+          ${(s.tags && s.tags.length) ? `
+          <div class="es-section-label">Tags</div>
+          <div class="es-tags">${s.tags.map(t => `<span class="es-tag">${esc(t)}</span>`).join('')}</div>` : ''}
+        </div>
+      </div>`).join('');
+  }
+
+  window.toggleScenario = function(idx) {
+    const card = document.querySelector(`.es-card[data-idx="${idx}"]`);
+    if (card) card.classList.toggle('expanded');
+  };
+
+  // Expand All
+  let allExpanded = false;
+  document.getElementById('expandAllBtn').addEventListener('click', function() {
+    allExpanded = !allExpanded;
+    document.querySelectorAll('.es-card:not([style*="display: none"])').forEach(c => {
+      c.classList.toggle('expanded', allExpanded);
+    });
+    this.textContent = allExpanded ? 'Collapse All' : 'Expand All';
+  });
+
+  function renderRisks(risks) {
+    const list = document.getElementById('risksList');
+    if (!risks.length) { list.innerHTML = '<div class="empty-state">No specific Kindle risks identified.</div>'; return; }
+    list.innerHTML = risks.map(r => `
+      <div class="risk-card">
+        <div class="risk-area">&#9888; ${esc(r.area || '')}</div>
+        <div class="risk-desc">${esc(r.description || '')}</div>
+        <div class="risk-test">${esc(r.suggested_test || '')}</div>
+      </div>`).join('');
+  }
+
+  function renderGaps(gaps) {
+    const list = document.getElementById('gapsList');
+    if (!gaps.length) { list.innerHTML = '<div class="empty-state">No coverage gaps identified.</div>'; return; }
+    list.innerHTML = gaps.map(g => `
+      <div class="gap-item"><span class="gap-icon">&#8857;</span>${esc(g)}</div>`).join('');
+  }
+
+  function buildPersonaFilters(es) {
+    const personas = ['All', ...new Set(es.map(s => s.persona).filter(Boolean))];
+    const pf = document.getElementById('personaFilters');
+    pf.innerHTML = personas.map(p => `
+      <button class="filter-btn ${p === 'All' ? 'active' : ''}" data-persona-filter="${esc(p)}">${esc(p)}</button>`).join('');
+
+    pf.querySelectorAll('.filter-btn').forEach(btn => {
+      btn.addEventListener('click', function() {
+        pf.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+        this.classList.add('active');
+        activePersonaFilter = this.dataset.personaFilter;
+        applyFilters();
+      });
+    });
+  }
+
+  document.getElementById('riskFilters').addEventListener('click', function(e) {
+    if (!e.target.matches('.filter-btn')) return;
+    this.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+    e.target.classList.add('active');
+    activeRiskFilter = e.target.dataset.riskFilter;
+    applyFilters();
+  });
+
+  function applyFilters() {
+    document.querySelectorAll('.es-card').forEach(card => {
+      const persona = card.dataset.persona;
+      const risk = card.dataset.risk;
+      const showPersona = activePersonaFilter === 'All' || persona === activePersonaFilter;
+      const showRisk = activeRiskFilter === 'All' || risk === activeRiskFilter;
+      card.style.display = (showPersona && showRisk) ? '' : 'none';
+    });
+  }
+
+  // Tabs
+  document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.addEventListener('click', function() {
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+      this.classList.add('active');
+      document.getElementById('tab-' + this.dataset.tab).classList.add('active');
+    });
+  });
+
+  function esc(str) {
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
+
+})();
+</script>
+</body>
+</html>
