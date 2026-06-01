@@ -195,28 +195,68 @@ Rules:
 
 
 def call_claude(prompt):
-    """Call Claude API. Supports direct Anthropic API key or AWS Bedrock."""
-    api_key = os.environ.get('ANTHROPIC_API_KEY', '')
-    use_bedrock = os.environ.get('CLAUDE_CODE_USE_BEDROCK', '') == '1' or os.environ.get('USE_BEDROCK', '') == '1'
+    """Call Claude API. Uses Claude CLI in AgentSpaces, or direct SDK elsewhere."""
+    import subprocess
 
-    if use_bedrock:
-        client = anthropic.AnthropicBedrock(
-            aws_access_key=os.environ.get('AWS_ACCESS_KEY_ID'),
-            aws_secret_key=os.environ.get('AWS_SECRET_ACCESS_KEY'),
-            aws_session_token=os.environ.get('AWS_SESSION_TOKEN'),
-            aws_region=os.environ.get('AWS_DEFAULT_REGION', 'us-east-1'),
+    claude_bin = '/agentspaces/cecelia/claude'
+    use_cli = os.path.exists(claude_bin)
+
+    if use_cli:
+        # AgentSpaces environment — use authenticated CLI
+        model = os.environ.get('ANTHROPIC_DEFAULT_SONNET_MODEL', 'global.anthropic.claude-sonnet-4-6[1m]')
+        result = subprocess.run(
+            [claude_bin, '--print', '--output-format', 'json', '--model', model, '--bare'],
+            input=prompt,
+            capture_output=True,
+            text=True,
+            timeout=600,
+            env={**os.environ,
+                 'ANTHROPIC_API_KEY': os.environ.get('ANTHROPIC_API_KEY', 'placeholder'),
+                 'CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC': '1'}
         )
-        model = os.environ.get('BEDROCK_MODEL', 'us.anthropic.claude-sonnet-4-5-20251001-v1:0')
+        if result.returncode != 0:
+            raise RuntimeError(f'Claude CLI error: {result.stderr[:300]}')
+        cli_output = json.loads(result.stdout)
+        if cli_output.get('is_error'):
+            raise RuntimeError(f'Claude error: {cli_output.get("result", "unknown")}')
+        return cli_output.get('result', '').strip()
     else:
-        client = anthropic.Anthropic(api_key=api_key)
-        model = os.environ.get('ANTHROPIC_MODEL', 'claude-sonnet-4-6')
+        # Check which provider to use
+        gemini_key = os.environ.get('GEMINI_API_KEY', '')
+        anthropic_key = os.environ.get('ANTHROPIC_API_KEY', '')
 
-    message = client.messages.create(
-        model=model,
-        max_tokens=4096,
-        messages=[{'role': 'user', 'content': prompt}]
-    )
-    return message.content[0].text.strip()
+        if gemini_key:
+            # Google Gemini (free tier)
+            import google.generativeai as genai
+            genai.configure(api_key=gemini_key)
+            model = genai.GenerativeModel(os.environ.get('GEMINI_MODEL', 'gemini-2.5-flash'))
+            response = model.generate_content(prompt)
+            return response.text.strip()
+        elif anthropic_key:
+            # Anthropic Claude (paid)
+            use_bedrock = os.environ.get('USE_BEDROCK', '') == '1'
+            if use_bedrock:
+                client = anthropic.AnthropicBedrock(
+                    aws_access_key=os.environ.get('AWS_ACCESS_KEY_ID'),
+                    aws_secret_key=os.environ.get('AWS_SECRET_ACCESS_KEY'),
+                    aws_session_token=os.environ.get('AWS_SESSION_TOKEN'),
+                    aws_region=os.environ.get('AWS_DEFAULT_REGION', 'us-east-1'),
+                )
+                model = os.environ.get('BEDROCK_MODEL', 'us.anthropic.claude-sonnet-4-5-20251001-v1:0')
+            else:
+                client = anthropic.Anthropic(api_key=anthropic_key)
+                model = os.environ.get('ANTHROPIC_MODEL', 'claude-sonnet-4-6')
+
+            message = client.messages.create(
+                model=model,
+                max_tokens=4096,
+                messages=[{'role': 'user', 'content': prompt}]
+            )
+            return message.content[0].text.strip()
+        else:
+            raise RuntimeError(
+                'No API key found. Set GEMINI_API_KEY (free) or ANTHROPIC_API_KEY in your environment.'
+            )
 
 
 def run_analysis(job_id, text_content, filename, feature_context=''):
