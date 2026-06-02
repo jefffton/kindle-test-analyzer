@@ -638,6 +638,94 @@
     font-weight: 500;
   }
 
+  /* Personalize Box */
+  .personalize-box {
+    margin-top: 16px;
+    border: 1px solid #D5D9D9;
+    border-radius: var(--radius);
+    padding: 14px 16px;
+    background: #FAFAFA;
+  }
+
+  .personalize-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .personalize-title {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--kindle-dark);
+  }
+
+  .personalize-subtitle {
+    font-size: 12px;
+    color: var(--kindle-gray);
+    margin-top: 2px;
+  }
+
+  .toggle-switch {
+    position: relative;
+    display: inline-block;
+    width: 44px;
+    height: 24px;
+    flex-shrink: 0;
+  }
+
+  .toggle-switch input { opacity: 0; width: 0; height: 0; }
+
+  .toggle-slider {
+    position: absolute;
+    cursor: pointer;
+    inset: 0;
+    background: #ccc;
+    border-radius: 24px;
+    transition: 0.2s;
+  }
+
+  .toggle-slider::before {
+    content: "";
+    position: absolute;
+    height: 18px;
+    width: 18px;
+    left: 3px;
+    bottom: 3px;
+    background: white;
+    border-radius: 50%;
+    transition: 0.2s;
+  }
+
+  .toggle-switch input:checked + .toggle-slider { background: var(--kindle-orange); }
+  .toggle-switch input:checked + .toggle-slider::before { transform: translateX(20px); }
+
+  .personalize-name-row {
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid #E8E8E8;
+  }
+
+  .tester-name-input {
+    width: 100%;
+    padding: 10px 14px;
+    border: 1px solid #D5D9D9;
+    border-radius: 6px;
+    font-size: 14px;
+    font-family: inherit;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+
+  .tester-name-input:focus { border-color: var(--kindle-orange); }
+
+  .personalize-preview {
+    margin-top: 8px;
+    font-size: 12px;
+    color: var(--kindle-gray);
+    font-style: italic;
+    min-height: 18px;
+  }
+
   /* Footer */
   footer {
     text-align: center;
@@ -721,6 +809,24 @@
         <span class="hint-tag">Target devices</span>
         <span class="hint-tag">Dependencies / integrations</span>
         <span class="hint-tag">Business rules</span>
+      </div>
+    </div>
+
+    <!-- Personalization Toggle -->
+    <div class="personalize-box" id="personalizeBox">
+      <div class="personalize-header">
+        <label class="toggle-switch">
+          <input type="checkbox" id="personalizeToggle">
+          <span class="toggle-slider"></span>
+        </label>
+        <div>
+          <div class="personalize-title">Personalize Scenarios</div>
+          <div class="personalize-subtitle">Use your name in scenarios for a more relatable tester experience</div>
+        </div>
+      </div>
+      <div class="personalize-name-row" id="personalizeNameRow" style="display:none">
+        <input type="text" id="testerName" class="tester-name-input" placeholder="Enter your name (e.g. Jeff, Priya, Sarah...)">
+        <div class="personalize-preview" id="personalizePreview"></div>
       </div>
     </div>
 
@@ -848,6 +954,29 @@
   let activePersonaFilter = 'All';
   let activeRiskFilter = 'All';
 
+  // Personalization toggle
+  const personalizeToggle = document.getElementById('personalizeToggle');
+  const personalizeNameRow = document.getElementById('personalizeNameRow');
+  const testerNameInput = document.getElementById('testerName');
+  const personalizePreview = document.getElementById('personalizePreview');
+
+  personalizeToggle.addEventListener('change', () => {
+    personalizeNameRow.style.display = personalizeToggle.checked ? 'block' : 'none';
+    if (personalizeToggle.checked) testerNameInput.focus();
+    updatePreview();
+  });
+
+  testerNameInput.addEventListener('input', updatePreview);
+
+  function updatePreview() {
+    const name = testerNameInput.value.trim();
+    if (name && personalizeToggle.checked) {
+      personalizePreview.textContent = `Scenarios will feature "${name}" as the user — e.g. "${name} opens the Kindle app on her commute..."`;
+    } else {
+      personalizePreview.textContent = '';
+    }
+  }
+
   // File selection
   fileInput.addEventListener('change', () => {
     if (fileInput.files[0]) selectFile(fileInput.files[0]);
@@ -922,6 +1051,9 @@
       formData.append('file', currentFile);
       const featureContext = document.getElementById('featureContext').value.trim();
       if (featureContext) formData.append('feature_context', featureContext);
+      const personalizeOn = document.getElementById('personalizeToggle').checked;
+      const testerName = document.getElementById('testerName').value.trim();
+      if (personalizeOn && testerName) formData.append('tester_name', testerName);
       const submitResp = await fetch('/analyze', { method: 'POST', body: formData });
       const submitData = await submitResp.json();
 

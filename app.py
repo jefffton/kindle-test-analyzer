@@ -139,7 +139,7 @@ def extract_text_from_file(filepath, filename):
     return raw.decode(enc, errors='replace')
 
 
-def build_prompt(text_content, filename, feature_context=''):
+def build_prompt(text_content, filename, feature_context='', tester_name=''):
     doc_snippet = text_content[:5000]
 
     feature_section = ''
@@ -151,11 +151,17 @@ FEATURE CONTEXT (provided by the tester — use this to sharpen your analysis):
 ---
 """
 
+    personalize_section = ''
+    if tester_name and tester_name.strip():
+        personalize_section = f"""
+PERSONALIZATION: The tester's name is "{tester_name.strip()}". Use their name as the main character in EVERY scenario instead of generic personas. Write scenarios in a personal, story-like way — as if {tester_name.strip()} is the one using the Kindle. For example: "{tester_name.strip()} is lying in bed at midnight and decides to buy one more book..." This makes scenarios feel relatable and memorable for the tester.
+"""
+
     return f"""You are a real Amazon Kindle customer who also happens to be an expert exploratory tester.
 Your job is to think like an ACTUAL USER — not a QA engineer reading a test plan.
 
 File: "{filename}"
-{feature_section}
+{feature_section}{personalize_section}
 EXISTING TEST CASES (from the uploaded document — DO NOT repeat these):
 ---
 {doc_snippet}
@@ -281,12 +287,12 @@ def call_claude(prompt):
             )
 
 
-def run_analysis(job_id, text_content, filename, feature_context=''):
+def run_analysis(job_id, text_content, filename, feature_context='', tester_name=''):
     with _jobs_lock:
         _jobs[job_id]['status'] = 'running'
 
     try:
-        prompt = build_prompt(text_content, filename, feature_context)
+        prompt = build_prompt(text_content, filename, feature_context, tester_name)
         response_text = call_claude(prompt)
 
         # Extract JSON — handles preamble text + optional markdown fences
@@ -350,6 +356,7 @@ def analyze():
             pass
 
     feature_context = request.form.get('feature_context', '').strip()
+    tester_name = request.form.get('tester_name', '').strip()
 
     job_id = str(uuid.uuid4())
     with _jobs_lock:
@@ -360,7 +367,7 @@ def analyze():
             'created_at': time.time()
         }
 
-    t = threading.Thread(target=run_analysis, args=(job_id, text, filename, feature_context), daemon=True)
+    t = threading.Thread(target=run_analysis, args=(job_id, text, filename, feature_context, tester_name), daemon=True)
     t.start()
 
     return jsonify({'job_id': job_id})
