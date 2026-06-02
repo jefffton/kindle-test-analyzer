@@ -151,47 +151,69 @@ FEATURE CONTEXT (provided by the tester — use this to sharpen your analysis):
 ---
 """
 
-    return f"""You are a senior QA engineer specializing in Amazon Kindle Storefront.
+    return f"""You are a real Amazon Kindle customer who also happens to be an expert exploratory tester.
+Your job is to think like an ACTUAL USER — not a QA engineer reading a test plan.
+
 File: "{filename}"
 {feature_section}
-DOCUMENT (test cases / specs):
+EXISTING TEST CASES (from the uploaded document — DO NOT repeat these):
 ---
 {doc_snippet}
 ---
 
-Return ONLY a JSON object (no markdown fences, no commentary) with this exact structure:
+IMPORTANT RULES:
+1. First, extract the test cases that ALREADY exist in the document above.
+2. Then generate NEW exploratory scenarios that are COMPLETELY DIFFERENT from the existing test cases.
+3. Write scenarios as real user stories — what a real person would actually do on their Kindle, not what a test document says to verify.
+4. Think about UNEXPECTED user behavior: interrupted actions, weird combos, real-world situations.
+
+Return ONLY a JSON object (no markdown fences, no explanation before or after) with this structure:
 
 {{
-  "document_summary": "2-3 sentence description of the document and feature being tested",
+  "document_summary": "2-3 sentences about what this document covers",
   "test_cases_found": [
-    {{"id": "TC-001", "title": "title", "category": "category", "description": "what it tests", "priority": "High"}}
+    {{"id": "TC-001", "title": "title", "category": "category", "description": "what it tests", "priority": "High|Medium|Low"}}
   ],
-  "coverage_gaps": ["gap 1", "gap 2"],
+  "coverage_gaps": ["describe a real scenario users do that is NOT covered by any existing test case"],
   "exploratory_scenarios": [
     {{
       "id": "ES-001",
-      "title": "scenario title",
-      "persona": "Casual Reader",
-      "device": "Kindle Paperwhite",
-      "scenario": "1. Step one\\n2. Step two\\n3. Step three",
-      "what_to_look_for": "Specific observations and potential bugs",
-      "risk_level": "High",
-      "tags": ["tag1", "tag2"]
+      "title": "short descriptive name",
+      "persona": "who is doing this",
+      "device": "which device",
+      "scenario": "Write this as a real user story. Example:\\n1. Mom is on the bus, opens Kindle app on her cracked-screen iPhone\\n2. She searches for a bedtime story for her 5-year-old\\n3. She finds one but accidentally taps 'Buy Now' instead of 'Read Sample'\\n4. She panics and tries to get a refund immediately\\n5. Her internet drops because the bus went into a tunnel",
+      "what_to_look_for": "Specific bugs or confusing UX that could happen: Does the refund button work offline? Is there a confirmation before purchase? Can she undo within the app?",
+      "risk_level": "High|Medium|Low",
+      "tags": ["accidental-purchase", "offline", "mobile", "refund"]
     }}
   ],
   "kindle_specific_risks": [
-    {{"area": "risk area", "description": "description", "suggested_test": "how to test"}}
+    {{"area": "risk area", "description": "what could go wrong from a real user's perspective", "suggested_test": "a concrete thing to try"}}
   ],
   "total_test_cases": 0,
   "total_scenarios": 0
 }}
 
-Rules:
-- Extract ALL test cases visible in the document
-- If feature context was provided, heavily weight scenarios and gaps toward that specific feature's edge cases, business rules, and integration points
-- Generate exactly 8 exploratory scenarios covering different personas (Casual Reader, Power User, Parent, Student, International User, Accessibility User) and devices (Kindle Paperwhite, Kindle App iOS, Kindle App Android, Fire Tablet, All Devices)
-- Focus on real Kindle Storefront user journeys: search, browse, purchase, samples, KU, recommendations, wishlists, gifting
-- Identify at least 4 coverage gaps (especially for untested edge cases in the described feature) and 3 Kindle-specific risks"""
+SCENARIO GUIDELINES — think like these REAL users:
+- A grandma who just got her first Kindle Paperwhite and doesn't know what "sync" means
+- A teenager reading manga on their phone in class with low brightness and spotty WiFi
+- A book club member trying to share highlights with friends on different platforms
+- A commuter whose subway loses signal mid-download
+- A parent who discovers their kid bought 15 books on their linked account
+- A student who needs a textbook NOW but the sample won't load
+- A user switching between audiobook and ebook mid-chapter while driving, then walking
+- Someone in India trying to buy a book priced in USD with their local payment method
+- A visually impaired user relying entirely on VoiceView/screen reader
+- A power user with 3000+ books whose library search has become unusable
+
+Generate exactly 10 scenarios that:
+- DO NOT duplicate any existing test case in the document
+- Feel like real situations real people encounter (messy, interrupted, unexpected)
+- Cover different devices, network conditions, accessibility needs, and payment situations
+- Include at least 2 scenarios about things going WRONG (errors, confusion, frustration)
+- Include at least 2 scenarios about unusual but valid user paths
+
+Also identify at least 5 coverage gaps and 4 Kindle-specific risks."""
 
 
 def call_claude(prompt):
