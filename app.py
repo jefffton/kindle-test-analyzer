@@ -157,40 +157,82 @@ FEATURE CONTEXT (provided by the tester — use this to sharpen your analysis):
 PERSONALIZATION: The tester's name is "{tester_name.strip()}". Use their name as the main character in EVERY scenario instead of generic personas. Write scenarios in a personal, story-like way — as if {tester_name.strip()} is the one using the Kindle. For example: "{tester_name.strip()} is lying in bed at midnight and decides to buy one more book..." This makes scenarios feel relatable and memorable for the tester.
 """
 
-    return f"""You are a real Amazon Kindle customer who also happens to be an expert exploratory tester.
-Your job is to think like an ACTUAL USER — not a QA engineer reading a test plan.
+    return f"""You are a senior exploratory tester for Amazon Kindle Storefront with 10+ years of experience.
+You stay current with modern ad-hoc testing trends: chaos engineering for UI, accessibility-first testing,
+AI/ML-driven feature testing, privacy/data-handling exploration, dark-pattern detection, cross-app deep linking,
+session-resumption testing, low-memory device degradation, network shaping (2G/spotty 5G/airplane mode toggling),
+voice assistant integration (Alexa), Bluetooth device hand-offs, and real-world battery/thermal stress scenarios.
 
 File: "{filename}"
 {feature_section}{personalize_section}
-EXISTING TEST CASES (from the uploaded document — DO NOT repeat these):
----
+========================================================================
+EXISTING TEST CASES IN THE UPLOADED DOCUMENT (read carefully — your scenarios MUST NOT overlap with these):
+========================================================================
 {doc_snippet}
----
+========================================================================
 
-IMPORTANT RULES:
-1. First, extract the test cases that ALREADY exist in the document above.
-2. Then generate NEW exploratory scenarios that are COMPLETELY DIFFERENT from the existing test cases.
-3. Write scenarios as real user stories — what a real person would actually do on their Kindle, not what a test document says to verify.
-4. Think about UNEXPECTED user behavior: interrupted actions, weird combos, real-world situations.
+ABSOLUTE HARD RULES — READ TWICE:
 
-Return ONLY a JSON object (no markdown fences, no explanation before or after) with this structure:
+RULE 1 — ZERO DUPLICATION:
+- Read every test case in the uploaded document above.
+- Your exploratory scenarios MUST be substantively different — not just reworded versions.
+- A scenario is a DUPLICATE if its core happy-path action matches any existing TC's action
+  (e.g. "user searches for a book" matches an existing search TC even if you add a different device).
+- Before finalizing each scenario, mentally check: "Could this scenario be marked PASS by simply
+  running the closest existing TC?" If yes, DISCARD it and write a different one.
+
+RULE 2 — IF YOU CAN'T FIND TRULY NEW IDEAS, RETURN FEWER SCENARIOS:
+- Quality > quantity. If you can only generate 5 genuinely novel scenarios, return 5 — not 10 padded ones.
+- It is BETTER to return 4-5 sharp, original scenarios than 10 that overlap with the document.
+- DO NOT pad output by recycling the uploaded test cases in disguise.
+
+RULE 3 — EXPLORATORY MEANS UNSCRIPTED:
+- Exploratory scenarios are NOT step-by-step verification of expected behavior.
+- They are investigations driven by curiosity: "What happens if...?", "Can a user accidentally...?",
+  "What if two things happen at once?"
+- Each scenario must include at least ONE of these qualities:
+  * Concurrency / race condition (two actions at the same moment)
+  * State pollution (corrupted local cache, partial sync, orphan data)
+  * Modern threat model (privacy, dark patterns, accessibility regression, AI hallucination, deep-link hijack)
+  * Cross-surface interaction (Kindle + Alexa, Kindle + Goodreads, Kindle + Audible hand-off)
+  * Device degradation (low storage, low battery, thermal throttle, screen burn-in on e-ink)
+  * Real-world chaos (network flapping, OS-level interruption, app backgrounding mid-action)
+
+RULE 4 — MODERN AD-HOC TESTING TRENDS TO COVER (pick the most relevant 5-7 for this document):
+- AI-powered features: AI-generated book summaries, recommendations bias, hallucinated content, training-data leakage
+- Privacy & data residency: GDPR right-to-delete, regional content licensing edge cases, kids' COPPA flows
+- Dark-pattern detection: forced opt-ins, hidden subscription renewals, tricky "cancel" flows
+- Accessibility regressions: VoiceView, dynamic text scaling, high-contrast, switch control, color-blind safe palettes
+- Deep-link / universal-link hijack: malicious URLs, expired share links, region-mismatched deep links
+- Cross-device session handoff: "continue reading on another device" failures, sync conflicts, last-page disagreements
+- Subscription / payment edge cases: trial-to-paid race, gift card + KU combo, expired card mid-borrow, family library sharing limits
+- Offline-first behavior: airplane-mode purchase queue, partial sample mid-network-loss, library access without auth refresh
+- AI/ML recommendation poisoning: rapid wishlist-then-remove churn, watching how recommendations adapt
+- Voice integration: Alexa "read me chapter 3" with ambiguous title, Echo Show display fallback
+- Low-end device behavior: 2GB-RAM Fire HD with 50+ open tabs, e-ink ghosting on Paperwhite after long reading
+- Cross-app interruptions: phone call mid-purchase, screen recorder running during DRM content, picture-in-picture audiobook
+- Localization edge cases: RTL languages (Arabic, Hebrew), CJK fonts on e-ink, currency conversion precision
+
+Return ONLY a JSON object (no markdown fences, no explanation before or after):
 
 {{
-  "document_summary": "2-3 sentences about what this document covers",
+  "document_summary": "2-3 sentences describing the uploaded document's scope and what it tests",
   "test_cases_found": [
     {{"id": "TC-001", "title": "title", "category": "category", "description": "what it tests", "priority": "High|Medium|Low"}}
   ],
-  "coverage_gaps": ["describe a real scenario users do that is NOT covered by any existing test case"],
+  "coverage_gaps": ["A specific user behavior or edge case that the existing test cases do NOT cover"],
   "exploratory_scenarios": [
     {{
       "id": "ES-001",
-      "title": "short descriptive name",
+      "title": "short distinctive name",
       "persona": "who is doing this",
       "device": "which device",
-      "scenario": "Write this as a real user story. Example:\\n1. Mom is on the bus, opens Kindle app on her cracked-screen iPhone\\n2. She searches for a bedtime story for her 5-year-old\\n3. She finds one but accidentally taps 'Buy Now' instead of 'Read Sample'\\n4. She panics and tries to get a refund immediately\\n5. Her internet drops because the bus went into a tunnel",
-      "what_to_look_for": "Specific bugs or confusing UX that could happen: Does the refund button work offline? Is there a confirmation before purchase? Can she undo within the app?",
+      "scenario": "Write as a real user story with 4-7 numbered steps. Make at least one step messy, surprising, or modern (concurrency, AI feature, privacy concern, accessibility need, etc.). Avoid generic happy-path search/buy/read flows that any existing TC already covers.",
+      "what_to_look_for": "Concrete observations, modern bug categories (UX, perf, privacy, accessibility, AI behavior, security), and how to confirm if it broke",
       "risk_level": "High|Medium|Low",
-      "tags": ["accidental-purchase", "offline", "mobile", "refund"]
+      "novelty_check": "ONE sentence stating WHY this scenario is NOT covered by any existing test case in the document",
+      "trend_tag": "which modern testing trend this exercises (e.g. AI-recommendations-bias, deep-link-hijack, cross-device-handoff, accessibility-regression, dark-pattern, privacy, chaos-engineering, voice-integration, low-end-device, offline-first)",
+      "tags": ["tag1", "tag2"]
     }}
   ],
   "kindle_specific_risks": [
@@ -200,26 +242,12 @@ Return ONLY a JSON object (no markdown fences, no explanation before or after) w
   "total_scenarios": 0
 }}
 
-SCENARIO GUIDELINES — think like these REAL users:
-- A grandma who just got her first Kindle Paperwhite and doesn't know what "sync" means
-- A teenager reading manga on their phone in class with low brightness and spotty WiFi
-- A book club member trying to share highlights with friends on different platforms
-- A commuter whose subway loses signal mid-download
-- A parent who discovers their kid bought 15 books on their linked account
-- A student who needs a textbook NOW but the sample won't load
-- A user switching between audiobook and ebook mid-chapter while driving, then walking
-- Someone in India trying to buy a book priced in USD with their local payment method
-- A visually impaired user relying entirely on VoiceView/screen reader
-- A power user with 3000+ books whose library search has become unusable
-
-Generate exactly 10 scenarios that:
-- DO NOT duplicate any existing test case in the document
-- Feel like real situations real people encounter (messy, interrupted, unexpected)
-- Cover different devices, network conditions, accessibility needs, and payment situations
-- Include at least 2 scenarios about things going WRONG (errors, confusion, frustration)
-- Include at least 2 scenarios about unusual but valid user paths
-
-Also identify at least 5 coverage gaps and 4 Kindle-specific risks."""
+FINAL CHECK before responding:
+- For each exploratory_scenario, the novelty_check field MUST justify why no existing TC covers it.
+- If you cannot fill novelty_check honestly for a scenario, DELETE that scenario.
+- Aim for 6-10 scenarios. If fewer than 6 are genuinely novel, return only the novel ones.
+- At least 4 scenarios must use a "trend_tag" from the modern trends list above.
+- Identify at least 5 coverage gaps and 4 Kindle-specific risks (these can repeat themes from existing TCs since their job is to point out what's missing)."""
 
 
 def call_claude(prompt):
