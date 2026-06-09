@@ -250,6 +250,28 @@ FINAL CHECK before responding:
 - Identify at least 5 coverage gaps and 4 Kindle-specific risks (these can repeat themes from existing TCs since their job is to point out what's missing)."""
 
 
+def _extract_retry_delay(error):
+    """Best-effort extraction of the server-suggested retry delay (in seconds)
+    from a Gemini ResourceExhausted (429) error. Returns None if unavailable."""
+    # The google-api-core exception may carry a structured retry_delay on its
+    # details (a RetryInfo proto with a `.seconds` field).
+    for detail in getattr(error, 'details', None) or []:
+        retry_info = getattr(detail, 'retry_delay', None)
+        if retry_info is not None and hasattr(retry_info, 'seconds'):
+            return float(retry_info.seconds)
+
+    # Fall back to parsing the textual message, e.g. "Please retry in 19.37s"
+    # or "retry_delay { seconds: 19 }".
+    msg = str(error)
+    m = re.search(r'retry in\s+([\d.]+)\s*s', msg, re.IGNORECASE)
+    if m:
+        return float(m.group(1))
+    m = re.search(r'retry_delay\s*\{\s*seconds:\s*(\d+)', msg)
+    if m:
+        return float(m.group(1))
+    return None
+
+
 def call_claude(prompt):
     """Call Claude API. Uses Claude CLI in AgentSpaces, or direct SDK elsewhere."""
     import subprocess
@@ -284,10 +306,41 @@ def call_claude(prompt):
         if gemini_key:
             # Google Gemini (free tier)
             import google.generativeai as genai
+            from google.api_core import exceptions as google_exceptions
+
             genai.configure(api_key=gemini_key)
             model = genai.GenerativeModel(os.environ.get('GEMINI_MODEL', 'gemini-2.5-flash'))
-            response = model.generate_content(prompt)
-            return response.text.strip()
+
+            # The free tier is rate limited (e.g. 5 req/min for gemini-2.5-flash).
+            # A single 429 should not fail the whole job — retry with backoff,
+            # honoring the server-suggested retry delay when present.
+            max_retries = int(os.environ.get('GEMINI_MAX_RETRIES', '5'))
+            last_error = None
+
+            for attempt in range(max_retries):
+                try:
+                    response = model.generate_content(prompt)
+                    return response.text.strip()
+                except google_exceptions.ResourceExhausted as e:
+                    last_error = e
+                    if attempt == max_retries - 1:
+                        break
+                    # Prefer the API's suggested retry_delay; fall back to
+                    # exponential backoff (2, 4, 8, 16 ... seconds, capped).
+                    delay = _extract_retry_delay(e)
+                    if delay is None:
+                        delay = min(2 ** (attempt + 1), 60)
+                    else:
+                        delay += 1  # small buffer past the server's hint
+                    time.sleep(delay)
+
+            raise RuntimeError(
+                'Gemini API quota exceeded (HTTP 429) after '
+                f'{max_retries} attempts. The free tier allows only a few '
+                'requests per minute. Wait a minute and try again, or switch '
+                'to a paid provider by setting ANTHROPIC_API_KEY / USE_BEDROCK. '
+                f'Details: {str(last_error)[:200]}'
+            )
         elif anthropic_key:
             # Anthropic Claude (paid)
             use_bedrock = os.environ.get('USE_BEDROCK', '') == '1'
