@@ -280,17 +280,27 @@ def call_claude(prompt):
     use_cli = os.path.exists(claude_bin)
 
     if use_cli:
-        # AgentSpaces environment — use authenticated CLI
-        model = os.environ.get('ANTHROPIC_DEFAULT_SONNET_MODEL', 'global.anthropic.claude-sonnet-4-6[1m]')
+        # AgentSpaces environment — use the authenticated CLI.
+        # The cecelia CLI authenticates to Claude via AWS Bedrock using the
+        # credential-export helper configured in ~/.claude/settings.json.
+        # It must be told to use Bedrock (CLAUDE_CODE_USE_BEDROCK=1); otherwise
+        # it falls back to the direct Anthropic API and fails with 401.
+        # Do NOT inject a placeholder ANTHROPIC_API_KEY — that hijacks auth to
+        # the (invalid) direct API path. Models are referenced by alias.
+        model = os.environ.get('ANTHROPIC_DEFAULT_SONNET_MODEL', 'sonnet')
+        cli_env = {k: v for k, v in os.environ.items() if k != 'ANTHROPIC_API_KEY'}
+        cli_env.update({
+            'CLAUDE_CODE_USE_BEDROCK': '1',
+            'AWS_REGION': os.environ.get('AWS_REGION', 'us-west-2'),
+            'CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC': '1',
+        })
         result = subprocess.run(
             [claude_bin, '--print', '--output-format', 'json', '--model', model, '--bare'],
             input=prompt,
             capture_output=True,
             text=True,
             timeout=600,
-            env={**os.environ,
-                 'ANTHROPIC_API_KEY': os.environ.get('ANTHROPIC_API_KEY', 'placeholder'),
-                 'CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC': '1'}
+            env=cli_env
         )
         if result.returncode != 0:
             raise RuntimeError(f'Claude CLI error: {result.stderr[:300]}')
